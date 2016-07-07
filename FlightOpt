@@ -1,0 +1,185 @@
+import pyspark
+import numpy as np
+import math
+import time
+import random
+from aptNode import aptNode
+
+spark = pyspark.SparkContext("local[*]")
+from pyspark.sql import SQLContext
+from pyspark.sql import Row
+from pyspark.sql.functions import udf
+from pyspark.sql.types import IntegerType
+sqlc = SQLContext(spark)
+
+
+def wait(label):
+    raw_input("Waiting at label: {}".format(label))
+
+def spacer():
+    print "======================"
+
+def reg(rdd,name):
+    rdd.registerTempTable(name)
+
+def rPrev(rdd,n):
+    for i in rdd.take(n):
+        print i
+    wait("rPreview")
+
+def iPrev(item):
+    print item
+    wait("iPreview")
+
+def ps(rdd):
+    rdd.printSchema()
+    wait("printSchema")
+
+routes = sqlc.read.json("routes.json")
+airports=sqlc.read.json("airports2.json")
+
+def toIntUDF(string):
+    return int(string)
+
+toInt = udf(toIntUDF,IntegerType())
+airports=airports.withColumn("ID",toInt("ID")).orderBy("ID",ascending=True).cache()
+validIDs=airports.select("ID").collect()
+
+#great-circle distance between two airports
+def distance(aInfo,bInfo):
+    if (aInfo == bInfo):
+        return 0
+    else:
+        #define trig variables
+        R = 6371000
+        phi1,phi2 = math.radians(float(aInfo[0])),math.radians(float(bInfo[0]))
+        lam1,lam2=math.radians(float(aInfo[1])),math.radians(float(bInfo[1]))
+        delPhi=phi2-phi1
+        delLam=lam2-lam1
+    
+        #calculate haversine
+        a = math.sin(delPhi/2)**2 + (math.cos(phi1) * math.cos(phi2) * math.sin(delLam/2)**2)
+        c = 2 * math.atan2(math.sqrt(a),math.sqrt(1-a))
+        return (R*c)/1000
+
+#initialize nodes
+dictAir ={}
+for i in airports.select("Name","ID","Lat","Long").orderBy("ID").collect():
+    if (i[1]!=None):
+        dictAir["Airport{}".format(i[1])]= (i[0],(i[2],i[3]),[])
+
+def getApt(ID):
+    return dictAir["Airport{}".format(ID)]
+def getName(ID):
+    return dictAir["Airport{}".format(ID)][0]
+def getCoords(ID):
+    return dictAir["Airport{}".format(ID)][1]
+
+#make mapping
+for i in routes.select("Source ID","Dest ID").collect():
+    if (i[0]!='\\N' and i[1]!='\\N'):
+        sourceCNX = getApt(i[0])[2]
+        sourceCNX.append(int(i[1]))
+
+
+def printNames(list):
+    names =[]
+    for sc in list:
+        name = (getName(sc.ID),(sc.g,sc.h,sc.f),len(getApt(sc.ID)[2]))
+        names.append(name)
+    iPrev(names)
+
+def closestRoute(A,B):
+    #initialize
+    aCoords = getCoords(A)
+    bCoords = getCoords(B)
+    #iPrev((getName(A),getName(B)))
+    closedID=[]
+    unexpl=[aptNode(A,aCoords,0,0,0)]
+    unexplID=[A]
+    result = None
+
+    while (unexplID and result == None):
+        #find unexplored with minimum f, call it q
+        #printNames(unexpl)
+        q = unexpl[0]
+        for i in unexpl:
+            if i.f < q.f:
+                q = i
+        #see if q is destinaton
+        if (q.ID == B):
+            #iPrev("Found result")
+            result = q
+            break
+
+        #add q to closed list, remove it from open
+        #try:
+            #iPrev("I chose {}".format(getName(q.ID)))
+        #except:
+            #iPrev("I chose {}".format(q.ID))
+        unexpl.remove(q)
+        unexplID.remove(q.ID)
+        closedID.append(q.ID)
+
+        #iPrev(getApt(q.ID)[2])
+        #establish successors of q
+        for i in getApt(q.ID)[2]:
+            #if in closed list, ignore
+            if (i in closedID):
+                #iPrev("Successor {} is on closed list".format(getName(i)))
+                break
+            #not in open, add it
+            elif (i not in unexplID):
+                #iPrev("Successor {} is NOT on open list".format(getName(i)))
+                sc = aptNode(i,getCoords(i),0,0,0)
+                sc.path = q.path + [q.ID]
+                sc.g = q.g + distance(q.pos,sc.pos)
+                sc.h = distance(sc.pos,bCoords)
+                sc.setf()
+                unexplID.append(i)
+                unexpl.append(sc)
+            #if in open, see if this path is better, else ignore
+            else:
+                #iPrev("Successor {} is on open list".format(getName(i)))
+                g = q.g + distance(q.pos, getCoords(i))
+                better = [val for val in unexpl if i == val.ID and g < val.g]
+                if better:
+                    #iPrev("Successor {} has a better path: {} vs {}".format(getName(i),g,better[0].g))
+                    better[0].path = q.path + [q.ID]
+                    better[0].g = g
+                    better[0].setf()
+
+    if (result == None):
+        return None
+    else:
+        return result.path + [result.ID]
+
+def randPlaces():
+    A = 2585
+    length = len(validIDs)-1
+    while (getApt(A)[2]==[]):
+        i = random.randint(0,length)
+        A = validIDs[i].ID
+    return A
+
+n = 0
+totals = []
+trips = []
+start1 = time.time()
+while n<100:
+    A = randPlaces()
+    B = randPlaces()
+    start = time.time()    
+    outPath = closestRoute(A,B)
+    finish= time.time()
+    if (outPath != None):
+        print("Test {}".format(n))
+        #iPrev((getName(A),getName(B),outPath,finish-start))
+        totals.append(finish-start)
+        trips.append(outPath)
+        n+=1
+finish1 = time.time()
+iPrev("Total time: {}, Average: {}".format(finish1-start1,np.mean(totals)))
+iPrev(trips)
+indirect= [x for x in trips if len(x) > 2]
+iPrev(indirect)
