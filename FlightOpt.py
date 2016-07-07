@@ -189,7 +189,12 @@ trips = []
 start1 = time.time()
 
 #analyze n trips
-while n<1000:
+try:
+    n_max = int(float(raw_input("Trip dataset size (recommended range: 0-5000) = "))) 
+except:
+    n_max = 1000
+
+while n<n_max:
     A = randPlaces()
     B = randPlaces()
     
@@ -197,10 +202,10 @@ while n<1000:
     start = time.time()    
     outPath = closestRoute(A,B)
     finish= time.time()
-    
+
     #if there is no connection, skip
     if (outPath != None):
-        print("Test {}".format(n))
+        print("Evaluating trip {} of {}...".format(n,n_max))
         totals.append(finish-start)
         trips.append(outPath)
         n+=1
@@ -227,7 +232,7 @@ def tripOpt(trio):
     ABC = distance(ACoords,BCoords) + distance(BCoords,CCoords)
     AC  = distance(ACoords,CCoords)
     saved = (ABC - AC)*trio[1]
-    results = 'Most common trio: {} -> {} -> {} (Occurs {} times).\nBy connecting {} to {}, {} km of total travel is eliminated, or {} km per trip\nThis calculation took {} seconds and considers {} trips.'.format(getName(A),getName(B),getName(C),trio[1],getName(A),getName(C),saved,saved/trio[1],finish1-start1,n)
+    results = 'Most common trio: {} -> {} -> {} (Occurs {} times).\nBy connecting {} to {}, {} km of total travel is eliminated, or {} km per trip\nThis calculation took {} seconds at {} per trip and considers {} trips.'.format(getName(A),getName(B),getName(C),trio[1],getName(A),getName(C),saved,saved/trio[1],finish1-start1,np.mean(totals),n)
     iPrev(results)
 
 #==========Print final results=============
