@@ -3,7 +3,7 @@ import numpy as np
 import math
 import time
 import random
-import sys,os,os.path
+import sys,os,os.path,shutil
 import matplotlib.pyplot as plt
 
 spark = pyspark.SparkContext("local[*]")
@@ -56,19 +56,19 @@ def beginSetup():
     cwd = os.getcwd()
     if os.path.isdir(cwd+"/FlightData/FlightOptRoutes.parquet"):
         firstRoutes = False
-        routes = sqlc.read.parquet("/FlightData/FlightOptRoutes.parquet")
+        routes = sqlc.read.parquet(cwd+"/FlightData/FlightOptRoutes.parquet")
     else:
         firstRoutes = True
-        routes = sqlc.read.json("USNetwork2.json")
+        routes = sqlc.read.json(cwd+"/Datasets/USNetwork.json")
  
     if os.path.isdir(cwd+"/FlightData/OptItens.parquet"):
         firstItens = False
-        itens = sqlc.read.parquet("/FlightData/FlightOptItens.parquet")
+        itens = sqlc.read.parquet(cwd+"/FlightData/FlightOptItens.parquet")
     else:
         firstItens = True
-        itens  = sqlc.read.json("Itenaries.json").select("ORIGIN_AIRPORT_ID","DEST_AIRPORT_ID","PASSENGERS","MARKET_MILES_FLOWN")
+        itens  = sqlc.read.json(cwd+"/Datasets/Itenaries.json").select("ORIGIN_AIRPORT_ID","DEST_AIRPORT_ID","PASSENGERS","MARKET_MILES_FLOWN")
 
-    coords = sqlc.read.json("/FlightData/Coords.json").select("AIRPORT_ID","AIRPORT","LATITUDE","LONGITUDE")
+    coords = sqlc.read.json(cwd+"/FlightData/Coords.json").select("AIRPORT_ID","AIRPORT","LATITUDE","LONGITUDE")
     return firstRoutes and firstItens 
     
 
@@ -100,14 +100,16 @@ def formatRoutes():
     routes=routes.withColumn("RAMP_TO_RAMP",timeNormalize("DEPARTURES_PERFORMED","RAMP_TO_RAMP","PASSENGERS")).cache()
 
 
-def formatItens():
+def formatItens(firstTime):
     #format itenary data
     global itens
     itens = itens.withColumn("ORIGIN_AIRPORT_ID",toInt("ORIGIN_AIRPORT_ID"))
     itens = itens.withColumn("DEST_AIRPORT_ID",toInt("DEST_AIRPORT_ID"))
     itens = itens.withColumn("MARKET_MILES_FLOWN",toKm("MARKET_MILES_FLOWN"))
-    aggArg = sum("PASSENGERS").alias("PASSENGERS"),mean("MARKET_MILES_FLOWN").alias("MARKET_KMS_FLOWN")
-    itens = itens.groupBy("ORIGIN_AIRPORT_ID","DEST_AIRPORT_ID").agg(*aggArg).cache()
+    itens = itens.withColumn("PASSENGERS",toInt("PASSENGERS"))
+    if firstTime:
+        aggArg = sum("PASSENGERS").alias("PASSENGERS"),mean("MARKET_MILES_FLOWN").alias("MARKET_KMS_FLOWN")
+        itens = itens.groupBy("ORIGIN_AIRPORT_ID","DEST_AIRPORT_ID").agg(*aggArg).cache()
     
 #==========Creating Directional Graph===========
 
@@ -429,13 +431,14 @@ def trioAnalysis(nMax):
     schemaString = ['ORIGIN_AIRPORT_ID','Dest','Trip','kmSaved']
     kmSavedDF=sqlc.createDataFrame(routed,schemaString).groupBy("ORIGIN_AIRPORT_ID").agg(sum("kmSaved").alias("kmSaved"))
     print("Looking up airport names...")
-    kmSavedDF=kmSavedDF.map(lambda x: Row(Name=getName(x[0]),kmPerDept=x[1]/getApt(x[0])['depts']))
-    kmSavedDF=sqlc.createDataFrame(kmSavedDF,['Name','kmPerDept'])
-    print("Sorting results...")
-    kmSavedDF=kmSavedDF.orderBy("kmPerDept",ascending=False)
-    routes.write.parquet("FlightOptRoutes.parquet")
-    itens.write.parquet("FlightOptItens.parquet")
-    kmSavedDF.write.parquet("FlightOptResults.parquet")
+    kmSavedDF=kmSavedDF.map(lambda x: Row(Name=getName(x[0]),kmPerDept=(x[1]/getApt(x[0])['depts']),totalDepts=getApt(x[0])['depts'],totalKm = x[1]))
+    kmSavedDF=sqlc.createDataFrame(kmSavedDF,['Name','kmPerDept','totalDepts','totalKm'])
+    print("Saving data...")
+    cwd = os.getcwd()
+    kmSavedDF.write.parquet(cwd+"/FlightData/FlightOptResults.parquet")
+    routes.write.parquet(cwd+"/FlightData/FlightOptRoutes.parquet")
+    itens.write.parquet(cwd+"/FlightData/FlightOptItens.parquet")
+    return kmSavedDF
 
 #===============================================
 #==========Begin User Interface=================
@@ -445,15 +448,24 @@ def trioAnalysis(nMax):
 def setup():
     print("\nImporting data...")
     firstTime = beginSetup()
+    if firstTime == False:
+        wipe = raw_input("\nSaved data detected. Would you like to restore previous setup? (y/n) ")
+        if wipe == "n":
+            firstTime = True
+            cwd = os.getcwd()
+            shutil.rmtree(cwd+"/FlightData/FlightOptResults.parquet")
+            shutil.rmtree(cwd+"/FlightData/FlightOptRoutes.parquet")
+            shutil.rmtree(cwd+"/FlightData/FlightOptItens.parquet")
     if firstTime:
         print("Beginning first time setup...")
         print("Formatting routes...")
         formatRoutes()
         print("Formatting iteneraries...")
-        formatItens()
-        print("Creating dictionaries...")
+        formatItens(True)
     else:
         print("Loading data from previous session...")
+        formatItens(False)
+    print("Creating dictionaries...")
     createDicts()
     print("Creating node graph... (this may take a few seconds)")
     makeMapping()
@@ -476,7 +488,6 @@ def printTitle():
     print("====Version 3.0==============7/19/2016=========================")
 
 printTitle()
-#cont = raw_input("\nBegin setup? (y/n) ")
 cont = "y"
 if cont == "n":
     sys.exit()
@@ -514,13 +525,17 @@ while 1:
     else:
         cwd=os.getcwd()
         if os.path.isdir(cwd+"/FlightData/FlightOptResults.parquet"):
-            result = sqlc.read.parquet("/FlightData/FlightOptResults.parquet").orderBy("kmPerDept",ascending=False)
+            result = sqlc.read.parquet(cwd+"/FlightData/FlightOptResults.parquet")
         else:
             result = trioAnalysis(10000000)
+        print("Sorting data...")
+        resultsKM = result.orderBy("totalKm",ascending=False).cache()
+        resultsDEPT = result.orderBy("kmPerDept",ascending=False).cache()
         printTitle()
-        seeMore = raw_input("\nAnalysis Completed! View the ten airports with most room for improvement? (y/n) ")
-        print("\nSorting data...")
-        if seeMore == "y":
-            print("")
-            for i in result.take(10):
-                print("{} wastes {} kilometers per outbound flight".format(i[0],i[1]))
+        print("\nTop 25 airports by kilometers wasted per departure:")
+        for i in resultsDEPT.take(25):
+            fmtKM = "Passengers flying from {} ({}) wasted {} total kilometers annually. (Considers {} departures)"
+            print("{} ({}) wastes {} kilometers per outbound flight. (Considers {} departures)".format(i[0][0],i[0][1],i[1],i[2]))
+        print("\nTop 25 airports by total kilometers wasted:")
+        for i in resultsKM.take(25):
+            print(fmtKM.format(i[0][0],i[0][1],i[3],i[2]))
