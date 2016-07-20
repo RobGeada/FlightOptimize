@@ -13,7 +13,7 @@ Make sure the version numbers for py4j are correct for your particular install.
 (Above code thanks to [Prasbeesh K]( http://blog.prabeeshk.com))
 
 ###Check Other Dependencies
-If you're a regular Python user, the other dependencies are very common, but in case you don't have them, the neccesary packages are listed in dependencies.md
+If you're a regular Python user, the other dependencies are very common, but in case you don't have them, the neccesary packages are listed [here](https://github.com/RobGeada/FlightOptimize/blob/master/Dependencies.md)
 
 ###Setting up FlightOpt
 1. Put FlightGUI.py, the three parquet files, and Coords.json into a single directory
