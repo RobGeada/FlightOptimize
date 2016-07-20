@@ -14,6 +14,6 @@ Data source was changed to US DOT and scope limited to the United States; this d
 
 
 Version 3.0)
-Introduced UI for better UX and introduced many, many time optimizations. Now there is an inital setup time of ~100 seconds but on subsequent runnings of the program analysis is near instantaneous. This is due to saving the final results in parquet files, which have been commited. PLacing these parquet files in the same directory as FlightGUI.py will allow you to skip first time initializations and start playing with results, without needing the original data sets. 
+Introduced UI for better UX and introduced many, many time optimizations. Now there is an inital setup time of ~100 seconds but on subsequent runnings of the program analysis is near instantaneous. This is due to saving the final results in parquet files, which have been commited. Placing these parquet files in the same directory as FlightGUI.py will allow you to skip first time initializations and start playing with results, without needing the original data sets. 
 
   
