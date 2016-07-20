@@ -59,14 +59,14 @@ def beginSetup():
         routes = sqlc.read.parquet(cwd+"/FlightData/FlightOptRoutes.parquet")
     else:
         firstRoutes = True
-        routes = sqlc.read.json(cwd+"/Datasets/USNetwork.json")
+        routes = sqlc.read.parquet(cwd+"/Datasets/USNetwork.parquet")
  
     if os.path.isdir(cwd+"/FlightData/OptItens.parquet"):
         firstItens = False
         itens = sqlc.read.parquet(cwd+"/FlightData/FlightOptItens.parquet")
     else:
         firstItens = True
-        itens  = sqlc.read.json(cwd+"/Datasets/Itenaries.json").select("ORIGIN_AIRPORT_ID","DEST_AIRPORT_ID","PASSENGERS","MARKET_MILES_FLOWN")
+        itens  = sqlc.read.parquet(cwd+"/Datasets/Itenaries.parquet").select("ORIGIN_AIRPORT_ID","DEST_AIRPORT_ID","PASSENGERS","MARKET_MILES_FLOWN")
 
     coords = sqlc.read.json(cwd+"/FlightData/Coords.json").select("AIRPORT_ID","AIRPORT","LATITUDE","LONGITUDE")
     return firstRoutes and firstItens 
@@ -174,6 +174,8 @@ def getID(name):
 #i[7]=Passengers
 #i[8]=Departures
 #i[9]=Ramp to Ramp Time (minutes)
+
+#test
 
 def makeMapping():
     global routes
