@@ -54,22 +54,21 @@ def beginSetup():
     global coords
     global itens
     cwd = os.getcwd()
-    rtPath = cwd+"/FlightOptResults.parquet"
-    if os.path.isdir(cwd+"/FlightOptRoutes.parquet"):
+    if os.path.isdir(cwd+"/FlightData/FlightOptRoutes.parquet"):
         firstRoutes = False
-        routes = sqlc.read.parquet("FlightOptRoutes.parquet")
+        routes = sqlc.read.parquet("/FlightData/FlightOptRoutes.parquet")
     else:
         firstRoutes = True
         routes = sqlc.read.json("USNetwork2.json")
  
-    if os.path.isdir(cwd+"/FlightOptItens.parquet"):
+    if os.path.isdir(cwd+"/FlightData/OptItens.parquet"):
         firstItens = False
-        itens = sqlc.read.parquet("FlightOptRoutes.parquet")
+        itens = sqlc.read.parquet("/FlightData/FlightOptItens.parquet")
     else:
         firstItens = True
         itens  = sqlc.read.json("Itenaries.json").select("ORIGIN_AIRPORT_ID","DEST_AIRPORT_ID","PASSENGERS","MARKET_MILES_FLOWN")
 
-    coords = sqlc.read.json("Coords.json").select("AIRPORT_ID","AIRPORT","LATITUDE","LONGITUDE")
+    coords = sqlc.read.json("/FlightData/Coords.json").select("AIRPORT_ID","AIRPORT","LATITUDE","LONGITUDE")
     return firstRoutes and firstItens 
     
 
@@ -514,8 +513,8 @@ while 1:
         printTitle()
     else:
         cwd=os.getcwd()
-        if os.path.isdir(cwd+"/FlightOptResults.parquet"):
-            result = sqlc.read.parquet("FlightOptResults.parquet").orderBy("kmPerDept",ascending=False)
+        if os.path.isdir(cwd+"/FlightData/FlightOptResults.parquet"):
+            result = sqlc.read.parquet("/FlightData/FlightOptResults.parquet").orderBy("kmPerDept",ascending=False)
         else:
             result = trioAnalysis(10000000)
         printTitle()
