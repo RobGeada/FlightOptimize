@@ -4,7 +4,7 @@
 1. Download Spark at http://spark.apache.org/downloads.html
 2. Unzip package and place into directory of choice. I choose ~/Library
 3. Add the following to your .bash_profile:
-4. ```
+```
 export SPARK_HOME=<path to directory you created>
 export PYTHONPATH=$SPARK_HOME/python/:$PYTHONPATH
 export PYTHONPATH=$SPARK_HOME/python/lib/py4j-0.9-src.zip:$PYTHONPATH
