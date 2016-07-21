@@ -17,4 +17,4 @@ If you're a regular Python user, the other dependencies are very common, but in 
 
 ###Setting up FlightOpt
 1. Put FlightGUI.py and the FlightData folder into a single directory
-2. Run `python FlightGUI.py`
+2. Run `python FlightGUI.py`. Make sure your current working directory is the same one that FlightGUI.py is located in! 

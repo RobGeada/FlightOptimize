@@ -1,5 +1,6 @@
 # FlightOptimize
 
+Now available as a Docker image at rgeada/fedora:FlightGUI
 
 ####Version 1.0
 Using flight data from openflights.org, FlightOpt creates a directed graph of all airports that exist in the openflights database, wherein existing flights between airports are the edges. This graph is then traversed via the A* graph search algorithm, using simple great-circle distance as the heuristic, and thus the shortest path between airports A and B can be found, a process which takes an average of 6 ms. This optimal path is referred to as a 'trip'.
