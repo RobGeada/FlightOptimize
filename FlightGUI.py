@@ -177,10 +177,11 @@ def getID(name):
 
 #test
 
-def makeMapping():
+def makeMapping(firstTime):
     global routes
     grpString = "ORIGIN_AIRPORT_ID","ORIGIN_CITY_NAME","ORIGIN","DEST_AIRPORT_ID","DEST_CITY_NAME","DEST","UNIQUE_CARRIER_NAME"
-    routes = routes.groupBy(*grpString).agg(sum("PASSENGERS").alias("PASSENGERS"),sum("DEPARTURES_PERFORMED").alias("DEPARTURES_PERFORMED"),mean("RAMP_TO_RAMP").alias("RAMP_TO_RAMP"))
+    if firstTime:
+        routes = routes.groupBy(*grpString).agg(sum("PASSENGERS").alias("PASSENGERS"),sum("DEPARTURES_PERFORMED").alias("DEPARTURES_PERFORMED"),mean("RAMP_TO_RAMP").alias("RAMP_TO_RAMP"))
     for i in routes.collect():
         if not dictAir.get("Airport{}".format(i[0])):
             initNode(i[0],(i[1],i[2]),i[8])
@@ -191,6 +192,7 @@ def makeMapping():
             getApt(i[0])['depts'] += i[8]
             sourceCNX = getApt(i[0])['cnx']
             sourceCNX.append((int(i[3]),tripTime,i[6]))
+            
 
 #===========Population Flow=================
 def createCityFlux():
@@ -463,14 +465,14 @@ def setup():
         print("Formatting routes...")
         formatRoutes()
         print("Formatting iteneraries...")
-        formatItens(True)
+        formatItens(firstTime)
     else:
         print("Loading data from previous session...")
-        formatItens(False)
+        formatItens(firstTime)
     print("Creating dictionaries...")
     createDicts()
     print("Creating node graph... (this may take a few seconds)")
-    makeMapping()
+    makeMapping(firstTime)
     printTitle()
     print("\nSetup Complete!")
 
